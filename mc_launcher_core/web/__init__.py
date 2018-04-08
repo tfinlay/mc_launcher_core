@@ -5,6 +5,7 @@ import platform
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from mc_launcher_core.exceptions import InvalidLoginError, InvalidMinecraftVersionError
+from mc_launcher_core.util import extract_file_to_directory, java_esque_string_substitutor, is_os_64bit
 from mc_launcher_core.web.install import save_minecraft_jar
 from mc_launcher_core.web.util import chunked_file_download
 
@@ -90,31 +91,107 @@ def get_available_minecraft_versions():
         raise
 
 
-def save_minecraft_assets(assetsdir, bindir):
+def do_get_library(rules):
     """
-    Saves the asset files into assetsdir, based off minecraft.json in bindir
-    :param assetsdir: string
-    :param bindir: string
+    Whether to allow assets to be downloaded
+    :param rules: list
+    :return: bool
+    """
+    if rules is None:
+        return True
+
+    action = "disallow"
+
+    for rule in rules:
+        if rule.get("os"):
+            if rule["os"]["name"] == platform.system().lower():
+                action = rule["action"]
+        else:
+            action = rule["action"]
+
+    return action == "allow"
+
+
+def save_minecraft_libs(libdir, libraries):
+    """
+    Saves the library files into libdir, based off minecraft.json in bindir
+    :param libdir: string
+    :param libraries: list<library>
     :return: None
     """
-    with open(os.path.join(bindir, "minecraft.json")) as f:
-        assets = json.load(f)["libraries"]
-
     system = platform.system().lower()
 
-    for lib in assets:
+    for lib in libraries:
+        if not do_get_library(lib.get("rules")):
+            continue
+
         classifier_to_download = None
         if lib.get("natives"):
             # this library has natives attached to it
-            classifier_to_download = lib["natives"][system]
+            classifier_to_download = lib["natives"].get(system)
+            if classifier_to_download is not None:
+                classifier_to_download = java_esque_string_substitutor(
+                    classifier_to_download,
+                    arch=("64" if is_os_64bit() else "32")
+                )
 
-          
+        if classifier_to_download is not None:
+            filepath = os.path.join(
+                libdir,
+                *lib["downloads"]["classifiers"][classifier_to_download]["path"].split("/")
+            )
+
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+            chunked_file_download(
+                lib["downloads"]["classifiers"][classifier_to_download]["url"],
+                filepath
+            )
+
+            if lib.get("extract"):
+                exclude_from_extract = lib["extract"].get("exclude")
+
+                # extract the file
+                extract_file_to_directory(
+                    filepath,
+                    os.path.dirname(filepath),
+                    exclude_from_extract
+                )
+
+        if lib["downloads"].get("artifact"):
+            filepath = os.path.join(
+                libdir,
+                *lib["downloads"]["artifact"]["path"].split("/")
+            )
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+            chunked_file_download(
+                lib["downloads"]["artifact"]["url"],
+                filepath
+            )
 
 
-def save_minecraft_bin(bindir, mcversion):
+def check_minecraft_assets(assets_index_path, assetsdir):
     """
-    Saves the files usually in Minecrafts bin directory, into bindir
+    Checks if the assets are there, if not, download them
+    :param assets_index_path: string, path to the assets index file
+    :param assetsdir: string, path to assetsdir
+    :return: None
+    """
+    with open(assets_index_path, 'r') as f:
+        assets_index = json.load(f)
+
+    for asset in assets_index:
+        # download assets, see: http://wiki.vg/Game_files
+        pass
+
+
+def install_minecraft(bindir, assetsdir, libdir, mcversion):
+    """
+    Saves all of the files required for Minecraft to run
     :param bindir: string, path
+    :param assetsdir: string, path
+    :param libdir: string, path (usually <assetsdir>/../libraries
     :param mcversion: string, e.g. "1.7.10", "18w14b"
     :return: None
     """
@@ -133,14 +210,19 @@ def save_minecraft_bin(bindir, mcversion):
     # save the minecraft json
     chunked_file_download(version["url"], os.path.join(bindir, 'minecraft.json'))
 
+    # save libraries
     with open(os.path.join(bindir, 'minecraft.json')) as f:
-        asset_index_data = json.load(f)["assetIndex"]
+        minecraft_data = json.load(f)
 
-    for asset in asset_index_data:
+    save_minecraft_libs(libdir, minecraft_data["libraries"])
 
+    # download assets index
+    chunked_file_download(
+        minecraft_data["assetIndex"]["url"],
+        os.path.join(assetsdir, "index.json")
+    )
 
-
-
-if __name__ == "__main__":
-    from pprint import pprint as pp
-    pp(authenticate_user(input("username? "), input("password? "), True))
+    check_minecraft_assets(
+        os.path.join(assetsdir, "index.json"),
+        assetsdir
+    )

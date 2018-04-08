@@ -2,6 +2,7 @@ import posixpath
 import platform
 import os.path
 import logging
+import zipfile
 import json
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,29 @@ def java_esque_string_substitutor(s, **kwargs):
         i += 1
 
     return ''.join(sentence)
+
+
+def extract_file_to_directory(filepath, directory, exclude=()):
+    """
+    extracts the root-level contents of a file into directory
+    :param filepath: path
+    :param directory: path
+    :param exclude: list of things not to extract
+    :return: None
+    """
+    with zipfile.ZipFile(filepath) as z:
+        names = z.namelist()
+        for excluded in exclude:
+            try:
+                names.remove(excluded)
+            except ValueError:
+                pass
+
+        z.extractall(directory, names)
+
+
+def is_os_64bit():
+    return platform.machine().endswith('64')
 
 
 if __name__ == "__main__":
