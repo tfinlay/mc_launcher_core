@@ -135,6 +135,7 @@ def extract_file_to_directory(filepath, directory, exclude=()):
     with zipfile.ZipFile(filepath) as z:
         names = z.namelist()
         for excluded in exclude:
+            logger.debug("Removing name: {} from {}".format(excluded, names))
             try:
                 names.remove(excluded)
             except ValueError:

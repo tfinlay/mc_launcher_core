@@ -47,7 +47,7 @@ def verify_sha1(file, hash):
     :return: bool
     """
     hasher = hashlib.sha1()
-    with open(file) as f:
+    with open(file, 'rb') as f:
         hasher.update(f.read())
 
     return hasher.hexdigest() == hash

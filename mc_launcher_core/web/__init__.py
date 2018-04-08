@@ -122,11 +122,15 @@ def save_minecraft_libs(libdir, libraries):
     system = platform.system().lower()
 
     for lib in libraries:
+        logger.info("Checking library: {}".format(lib["name"]))
         if not do_get_library(lib.get("rules")):
+            logger.info("No need to download.")
             continue
 
         classifier_to_download = None
+        logging.debug("Checking for natives...")
         if lib.get("natives"):
+            logger.info("Checking for natives for {}bit system".format(("64" if is_os_64bit() else "32")))
             # this library has natives attached to it
             classifier_to_download = lib["natives"].get(system)
             if classifier_to_download is not None:
@@ -134,12 +138,14 @@ def save_minecraft_libs(libdir, libraries):
                     classifier_to_download,
                     arch=("64" if is_os_64bit() else "32")
                 )
+                logger.info("Found native")
 
         if classifier_to_download is not None:
             filepath = os.path.join(
                 libdir,
                 *lib["downloads"]["classifiers"][classifier_to_download]["path"].split("/")
             )
+            logger.debug("Downloading native to: '{}'".format(filepath))
 
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
@@ -148,8 +154,11 @@ def save_minecraft_libs(libdir, libraries):
                 filepath
             )
 
+            logger.debug("download complete")
+
             if lib.get("extract"):
                 exclude_from_extract = lib["extract"].get("exclude")
+                logger.debug("extracting files...")
 
                 # extract the file
                 extract_file_to_directory(
@@ -158,17 +167,27 @@ def save_minecraft_libs(libdir, libraries):
                     exclude_from_extract
                 )
 
+                # clean up afterwards
+                os.remove(filepath)
+                logger.debug("done")
+
         if lib["downloads"].get("artifact"):
             filepath = os.path.join(
                 libdir,
                 *lib["downloads"]["artifact"]["path"].split("/")
             )
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            logger.debug("Checking if need to download artifact to: {}".format(filepath))
+            if not os.path.isfile(filepath):
+                # get that file, cos it's not there yet
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-            chunked_file_download(
-                lib["downloads"]["artifact"]["url"],
-                filepath
-            )
+                logger.info("Downloading artifact to: {}".format(filepath))
+
+                chunked_file_download(
+                    lib["downloads"]["artifact"]["url"],
+                    filepath
+                )
+                logger.info("download complete")
 
 
 def check_minecraft_assets(assets_index_path, assetsdir):
@@ -195,33 +214,44 @@ def install_minecraft(bindir, assetsdir, libdir, mcversion):
     :param mcversion: string, e.g. "1.7.10", "18w14b"
     :return: None
     """
+    logger.info("Installing Minecraft version: '{}' with bindir: '{}', assetsdir: '{}', libdir: '{}'".format(mcversion, bindir, assetsdir, libdir))
+
+    logger.debug("Searching for version data")
     manifest = get_available_minecraft_versions()
 
     for version in manifest["versions"]:
         if version["id"] == mcversion:
+            logger.debug("Found Minecraft version data")
             version_data = version
             break
     else:
+        logger.critical("Failed to file version data for Minecraft Version: {}".format(mcversion))
         raise InvalidMinecraftVersionError(mcversion)
 
     # save the minecraft jar
+    logger.info("Saving Minecraft jar...")
     save_minecraft_jar(mcversion, os.path.join(bindir, 'minecraft.jar'))
 
     # save the minecraft json
+    logger.info("Saving Minecraft JSON")
     chunked_file_download(version["url"], os.path.join(bindir, 'minecraft.json'))
 
+    logger.info("Loading Minecraft data")
     # save libraries
     with open(os.path.join(bindir, 'minecraft.json')) as f:
         minecraft_data = json.load(f)
 
+    logger.info("Saving Minecraft libraries")
     save_minecraft_libs(libdir, minecraft_data["libraries"])
 
+    logger.info("Loading assets index...")
     # download assets index
     chunked_file_download(
         minecraft_data["assetIndex"]["url"],
         os.path.join(assetsdir, "index.json")
     )
 
+    logger.info("Saving assets")
     check_minecraft_assets(
         os.path.join(assetsdir, "index.json"),
         assetsdir
