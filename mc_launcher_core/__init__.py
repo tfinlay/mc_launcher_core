@@ -2,7 +2,9 @@
 In charge of the base low-level Minecraft API stuff
 """
 import logging
+import subprocess
 from mc_launcher_core.web import authenticate_user
+from mc_launcher_core.launch import build_commands
 logger = logging.getLogger(__name__)
 
 
@@ -12,7 +14,7 @@ class MinecraftUserProfile:
     """
     def __init__(self, id, name, legacy=False):
         self.id = id
-        self.name = name
+        self.display_name = name
         self.legacy = legacy
 
 
@@ -48,7 +50,7 @@ class MinecraftSession:
         :param client_token: string / None
         :return: None
         """
-        res = authenticate_user(self.username, password, False, client_token)
+        res = authenticate_user(self.username, password, True, client_token)
 
         if client_token is not None:
             self.client_token = client_token
@@ -58,14 +60,18 @@ class MinecraftSession:
         self.access_token = res["accessToken"]
 
         self.selected_user = make_minecraft_user_profile(res["selectedProfile"])
+        self.user_id = res["user"]["id"]
 
         for user in res["availableProfiles"]:
             self.available_users.append(make_minecraft_user_profile(user))
 
+    def get_session_id(self):
+        return "token:{}:{}".format(self.access_token, self.selected_user.id)
+
     def select_user(self):
         raise NotImplementedError()
 
-    def launch(self, bindir, gamedir, assetsdir, javapath):
+    def launch(self, bindir, gamedir, assetsdir, javapath, memory, libcache):
         """
         Launch Minecraft
         :param bindir: string, absolute path to the bin directory containing minecraft.jar, modloader.jar (if any), minecraft.json, and natives/
@@ -74,3 +80,18 @@ class MinecraftSession:
         :param javapath: string, absolute path to Java executable
         :return: None (atm) TODO: return stream of Minecraft output
         """
+        commands = build_commands(
+            bindir=bindir,
+            gamedir=gamedir,
+            assetsdir=assetsdir,
+            javapath=javapath,
+            session=self,
+            memory=memory,
+            libcache=libcache
+        )
+
+        proc = subprocess.Popen(commands)
+        proc.communicate()
+
+if __name__ == "__main__":
+    session = MinecraftSession("")
