@@ -5,7 +5,7 @@ import platform
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from mc_launcher_core.exceptions import InvalidLoginError, InvalidMinecraftVersionError
-from mc_launcher_core.util import extract_file_to_directory, java_esque_string_substitutor, is_os_64bit
+from mc_launcher_core.util import extract_file_to_directory, java_esque_string_substitutor, is_os_64bit, get_url_filename, do_get_library
 from mc_launcher_core.web.install import save_minecraft_jar
 from mc_launcher_core.web.util import chunked_file_download
 
@@ -91,31 +91,11 @@ def get_available_minecraft_versions():
         raise
 
 
-def do_get_library(rules):
-    """
-    Whether to allow assets to be downloaded
-    :param rules: list
-    :return: bool
-    """
-    if rules is None:
-        return True
-
-    action = "disallow"
-
-    for rule in rules:
-        if rule.get("os"):
-            if rule["os"]["name"] == platform.system().lower():
-                action = rule["action"]
-        else:
-            action = rule["action"]
-
-    return action == "allow"
-
-
-def save_minecraft_libs(libdir, libraries):
+def save_minecraft_libs(libdir, nativesdir, libraries):
     """
     Saves the library files into libdir, based off minecraft.json in bindir
     :param libdir: string
+    :param nativesdir: string, where to put natives
     :param libraries: list<library>
     :return: None
     """
@@ -127,30 +107,30 @@ def save_minecraft_libs(libdir, libraries):
             logger.info("No need to download.")
             continue
 
-        classifier_to_download = None
-        logging.debug("Checking for natives...")
+        native_classifier_to_download = None
+        logger.debug("Checking for natives...")
         if lib.get("natives"):
             logger.info("Checking for natives for {}bit system".format(("64" if is_os_64bit() else "32")))
             # this library has natives attached to it
-            classifier_to_download = lib["natives"].get(system)
-            if classifier_to_download is not None:
-                classifier_to_download = java_esque_string_substitutor(
-                    classifier_to_download,
+            native_classifier_to_download = lib["natives"].get(system)
+            if native_classifier_to_download is not None:
+                native_classifier_to_download = java_esque_string_substitutor(
+                    native_classifier_to_download,
                     arch=("64" if is_os_64bit() else "32")
                 )
                 logger.info("Found native")
 
-        if classifier_to_download is not None:
+        if native_classifier_to_download is not None:
             filepath = os.path.join(
-                libdir,
-                *lib["downloads"]["classifiers"][classifier_to_download]["path"].split("/")
+                nativesdir,
+                get_url_filename(lib["downloads"]["classifiers"][native_classifier_to_download]["path"])  # file name
             )
             logger.debug("Downloading native to: '{}'".format(filepath))
 
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
             chunked_file_download(
-                lib["downloads"]["classifiers"][classifier_to_download]["url"],
+                lib["downloads"]["classifiers"][native_classifier_to_download]["url"],
                 filepath
             )
 
@@ -192,9 +172,11 @@ def save_minecraft_libs(libdir, libraries):
 
 def check_minecraft_assets(assets_index_path, assetsdir):
     """
+    THIS MIGHT NOT BE NEEDED AFTER ALL!
+
     Checks if the assets are there, if not, download them
     :param assets_index_path: string, path to the assets index file
-    :param assetsdir: string, path to assetsdir
+    :param assetsdir: string, path to assets directory
     :return: None
     """
     with open(assets_index_path, 'r') as f:
@@ -205,36 +187,43 @@ def check_minecraft_assets(assets_index_path, assetsdir):
         pass
 
 
-def install_minecraft(bindir, assetsdir, libdir, mcversion):
+def download_minecraft(bindir, assetsdir, libdir, nativesdir, mcversion):
     """
     Saves all of the files required for Minecraft to run
     :param bindir: string, path
     :param assetsdir: string, path
     :param libdir: string, path (usually <assetsdir>/../libraries
+    :param nativesdir: string, path to the where natives should be saved (usually <bindir>/natives)
     :param mcversion: string, e.g. "1.7.10", "18w14b"
     :return: None
     """
     logger.info("Installing Minecraft version: '{}' with bindir: '{}', assetsdir: '{}', libdir: '{}'".format(mcversion, bindir, assetsdir, libdir))
 
-    logger.debug("Searching for version data")
-    manifest = get_available_minecraft_versions()
+    logger.info("Checking if files are already present...")
 
-    for version in manifest["versions"]:
-        if version["id"] == mcversion:
-            logger.debug("Found Minecraft version data")
-            version_data = version
-            break
-    else:
-        logger.critical("Failed to file version data for Minecraft Version: {}".format(mcversion))
-        raise InvalidMinecraftVersionError(mcversion)
+    if not os.path.isfile(os.path.join(bindir, "minecraft.jar")) or not os.path.isfile(os.path.join(bindir, "minecraft.json")):
+        logger.info("Failed to find minecraft.jar or minecraft.json, downloading one of both")
+        logger.debug("Searching for version data")
+        manifest = get_available_minecraft_versions()
 
-    # save the minecraft jar
-    logger.info("Saving Minecraft jar...")
-    save_minecraft_jar(mcversion, os.path.join(bindir, 'minecraft.jar'))
+        for version in manifest["versions"]:
+            if version["id"] == mcversion:
+                logger.debug("Found Minecraft version data")
+                version_data = version
+                break
+        else:
+            logger.critical("Failed to file version data for Minecraft Version: {}".format(mcversion))
+            raise InvalidMinecraftVersionError(mcversion)
 
-    # save the minecraft json
-    logger.info("Saving Minecraft JSON")
-    chunked_file_download(version["url"], os.path.join(bindir, 'minecraft.json'))
+        # save the minecraft jar
+        if not os.path.isfile(os.path.join(bindir, "minecraft.jar")):
+            logger.info("Saving Minecraft jar...")
+            save_minecraft_jar(mcversion, os.path.join(bindir, 'minecraft.jar'))
+
+        # save the minecraft json
+        if not os.path.isfile(os.path.join(bindir, "minecraft.json")):
+            logger.info("Saving Minecraft JSON")
+            chunked_file_download(version["url"], os.path.join(bindir, 'minecraft.json'))
 
     logger.info("Loading Minecraft data")
     # save libraries
@@ -242,7 +231,7 @@ def install_minecraft(bindir, assetsdir, libdir, mcversion):
         minecraft_data = json.load(f)
 
     logger.info("Saving Minecraft libraries")
-    save_minecraft_libs(libdir, minecraft_data["libraries"])
+    save_minecraft_libs(libdir, nativesdir, minecraft_data["libraries"])
 
     logger.info("Loading assets index...")
     # download assets index

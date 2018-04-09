@@ -80,6 +80,7 @@ class MinecraftSession:
         :param javapath: string, absolute path to Java executable
         :return: None (atm) TODO: return stream of Minecraft output
         """
+        from pprint import pprint as pp
         commands = build_commands(
             bindir=bindir,
             gamedir=gamedir,
@@ -90,8 +91,11 @@ class MinecraftSession:
             libcache=libcache
         )
 
-        proc = subprocess.Popen(commands)
+        print(commands)
+
+        proc = subprocess.Popen(commands, shell=True)
         proc.communicate()
+
 
 if __name__ == "__main__":
     session = MinecraftSession("")

@@ -60,11 +60,44 @@ def _lib_parser_OLD(lib_json):
     return dict(name=name, download_link=download, do_extract=do_extract, extract_info=extract_info, path=path)
 
 
-def get_required_libraries(bindir):
+def do_get_library(rules):
+    """
+    Whether to allow a library to be downloaded
+    :param rules: list
+    :return: bool
+    """
+    if rules is None:
+        return True
+
+    action = "disallow"
+
+    for rule in rules:
+        if rule.get("os"):
+            if rule["os"]["name"] == platform.system().lower():
+                action = rule["action"]
+        else:
+            action = rule["action"]
+
+    return action == "allow"
+
+
+def get_lib_file_path(lib):
+    """
+    Gets a libraries file path (if it's installed at all)
+    :param lib: dict
+    :return: None / string
+    """
+    if lib.get("rules") is None or (lib.get("rules") is not None and do_get_library(lib["rules"])):
+        # this one is supposed to be installed
+        if lib["downloads"].get("artifact"):
+            return lib["downloads"]["artifact"]["path"]
+
+
+def get_required_libraries_paths(bindir):
     """
     Gets the required libraries for the minecraft in bindir (from the minecraft.json) for the hosts OS
     :param bindir: string
-    :return: list<>
+    :return: list<string>
     """
     libs = []
 
@@ -72,10 +105,8 @@ def get_required_libraries(bindir):
     with open(os.path.join(bindir, "minecraft.json")) as f:
         libraries = json.load(f)["libraries"]
 
-    host_os = platform.system()
-
     for lib in libraries:
-        x = _lib_parser(lib)
+        x = get_lib_file_path(lib)
         if x is not None:
             libs.append(x)
 
@@ -88,14 +119,16 @@ def get_minecraft_launch_details(bindir):
     :param bindir: string
     :return: dict<classpath: string, args: string, version_id: string, logging_arg: string>
     """
-    with open(os.path.join(bindir, "minecraft.json")) as f:
+    file_to_get_details_from = "modloader.json" if os.path.isfile(os.path.join(bindir, "modloader.json")) else "minecraft.json"
+
+    with open(os.path.join(bindir, file_to_get_details_from)) as f:
         j = json.load(f)
 
     return dict(
         classpath=j["mainClass"],
         args=j["minecraftArguments"],
         version_id=j["id"],
-        logging_arg=j["logging"]["client"]["argument"]
+        version_type=j["type"]
     )
 
 
@@ -134,22 +167,27 @@ def extract_file_to_directory(filepath, directory, exclude=()):
     """
     with zipfile.ZipFile(filepath) as z:
         names = z.namelist()
-        for excluded in exclude:
-            logger.debug("Removing name: {} from {}".format(excluded, names))
-            try:
-                names.remove(excluded)
-            except ValueError:
-                pass
 
-        z.extractall(directory, names)
+        for filename in names:
+            if not any((f in filename for f in exclude)):
+                out_file = os.path.join(directory, get_url_filename(filename))
+                logger.debug("Extracting file: {} to: {}".format(filename, out_file))
+                z.extract(filename, directory)
 
 
 def is_os_64bit():
     return platform.machine().endswith('64')
 
 
+def escape_path_for_popen(path):
+    """
+    Escapes a path for use as part of a Popen command
+    :param path:
+    :return:
+    """
+
 if __name__ == "__main__":
     from pprint import pprint as pp
-    pp(get_required_libraries("../practice/bin"))
+    pp(get_required_libraries_paths("../practice/bin"))
 
     print(java_esque_string_substitutor("${test} hi there", test="hi there"))

@@ -8,9 +8,8 @@ class LibraryMissingError(Exception):
     """
     When a required library isn't found
     """
-    def __init__(self, libname, lib_data, *args):
-        self.libname = libname
-        self.lib_data = lib_data
+    def __init__(self, lib_path, *args):
+        self.lib_path = lib_path
 
         super().__init__(*args)
 

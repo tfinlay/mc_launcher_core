@@ -9,7 +9,7 @@ import subprocess
 import mc_launcher_core
 from mc_launcher_core.javautils import version_at
 from mc_launcher_core.exceptions import LibraryMissingError, MinecraftNotFoundError
-from mc_launcher_core.util import get_required_libraries, get_url_filename, get_minecraft_launch_details, java_esque_string_substitutor
+from mc_launcher_core.util import get_required_libraries_paths, get_url_filename, get_minecraft_launch_details, java_esque_string_substitutor
 
 
 logger = logging.getLogger(__name__)
@@ -36,13 +36,12 @@ def generate_class_path(bindir, libcache):
     else:
         logger.warning("Failed to find modloader.jar, if this launch supposed to be Vanilla?")
 
-    for lib in get_required_libraries(bindir):
-        logger.debug("Processing library: {}...".format(lib["name"]))
-        #filename = get_url_filename(lib["path"])
-        filepath = os.path.join(libcache, *lib["path"].split("/"))
+    for lib in get_required_libraries_paths(bindir):
+        logger.debug("Processing library at path: {}".format(lib))
+        filepath = os.path.join(libcache, *lib.split("/"))
 
         if not os.path.isfile(filepath):
-            raise LibraryMissingError(lib["name"], lib, "Required Library '{}', at path: '{}' wasn't found".format(lib["name"], filepath))
+            raise LibraryMissingError(filepath, "Required Library at path: '{}' wasn't found".format(filepath))
 
         cp.append(filepath)
 
@@ -53,6 +52,8 @@ def generate_class_path(bindir, libcache):
         raise MinecraftNotFoundError(minecraft_path)
 
     cp.append(minecraft_path)
+
+    cp.append(r"C:\Users\Thomas Finlay\Documents\Github\_ModInstaller\mc_launcher_core\test\static\libs\net\minecraftforge\forge\1.7.10-Forge10.13.4.1614-1.7.10\1.7.10-Forge10.13.4.1614-1.7.10.jar")
 
     return os.path.pathsep.join(cp)  # type: str
 
@@ -69,6 +70,7 @@ def build_commands(bindir, gamedir, assetsdir, javapath, session, memory, libcac
     :param libcache: string, path to place where all libraries are kept (shared across minecrafts)
     :return:
     """
+    logger.info("Building launch commands...")
     j = version_at(javapath)
     commands = list()
 
@@ -119,6 +121,7 @@ def build_commands(bindir, gamedir, assetsdir, javapath, session, memory, libcac
         auth_username=session.username,
         auth_session=session.get_session_id(),
         auth_access_token=session.access_token,
+        accessToken=session.access_token,
 
         version_name=launch_details["version_id"],
         game_directory=gamedir,
@@ -127,7 +130,16 @@ def build_commands(bindir, gamedir, assetsdir, javapath, session, memory, libcac
         user_type='legacy' if session.selected_user.legacy else 'mojang',
         user_properties='{}',
         assets_index_name="legacy",
+
+        version=launch_details["version_id"],
+        version_type=launch_details["version_type"]
     )
-    commands.append(java_esque_string_substitutor(launch_details["args"], **minecraft_args))
+
+    logger.debug("filling launch details into: '{}' from: {}".format(launch_details["args"], minecraft_args))
+
+    for item in launch_details["args"].split(" "):
+        commands.append(java_esque_string_substitutor(item, **minecraft_args))
+
+    #commands.append(java_esque_string_substitutor(launch_details["args"], **minecraft_args))
 
     return commands
