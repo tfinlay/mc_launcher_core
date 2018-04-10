@@ -53,9 +53,31 @@ def verify_sha1(file, hash):
     return hasher.hexdigest() == hash
 
 
+def get_download_url_for_minecraft_lib(libname):
+    """
+    gets the download URL for a Minecraft library based off its name
+    :param libname: string
+    :return: string
+    """
+    BASE_URL = "https://libraries.minecraft.net/"
+    pieces = libname.split(":")
+
+    # split the start bit
+    start = pieces.pop(0)
+    pieces = start.split(".") + pieces
+
+    pieces.append("{}-{}.jar".format(pieces[-2], pieces[-1]))
+
+    return BASE_URL + '/'.join(pieces)
+
+
 class ForgivingDict(dict):
     def __getitem__(self, item):
         try:
             return super().__getitem__(item)
         except KeyError:
             return None
+
+
+if __name__ == "__main__":
+    print(get_download_url_for_minecraft_lib("net.minecraft:launchwrapper:1.12"))

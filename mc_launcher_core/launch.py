@@ -129,7 +129,7 @@ def build_commands(bindir, gamedir, assetsdir, javapath, session, memory, libcac
         game_assets=assetsdir,
         user_type='legacy' if session.selected_user.legacy else 'mojang',
         user_properties='{}',
-        assets_index_name="legacy",
+        assets_index_name=launch_details["version_id"],
 
         version=launch_details["version_id"],
         version_type=launch_details["version_type"]

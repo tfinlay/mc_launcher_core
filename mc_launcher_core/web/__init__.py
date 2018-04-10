@@ -233,15 +233,28 @@ def download_minecraft(bindir, assetsdir, libdir, nativesdir, mcversion):
     logger.info("Saving Minecraft libraries")
     save_minecraft_libs(libdir, nativesdir, minecraft_data["libraries"])
 
-    logger.info("Loading assets index...")
-    # download assets index
-    chunked_file_download(
-        minecraft_data["assetIndex"]["url"],
-        os.path.join(assetsdir, "index.json")
+    assets_index_path = os.path.join(
+        assetsdir,
+        "indexes",
+        "{}.json".format(mcversion)  # Minecraft will look for this using the --assetIndex flag specified, for compliance <mcversion> should be specified there
     )
 
-    logger.info("Saving assets")
+    if not os.path.isfile(assets_index_path):
+        logger.info("Saving assets index into: {}".format(assets_index_path))
+        # download assets index
+        chunked_file_download(
+            minecraft_data["assetIndex"]["url"],
+            assets_index_path
+        )
+
     check_minecraft_assets(
-        os.path.join(assetsdir, "index.json"),
+        assets_index_path,
         assetsdir
     )
+
+    return
+
+    #check_minecraft_assets(
+    #    assets_index_path,
+    #    assetsdir
+    #)
