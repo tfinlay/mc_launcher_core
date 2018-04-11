@@ -4,6 +4,7 @@ import os.path
 import logging
 import zipfile
 import json
+from mc_launcher_core.web.util import get_download_url_path_for_minecraft_lib
 
 logger = logging.getLogger(__name__)
 
@@ -81,12 +82,27 @@ def do_get_library(rules):
     return action == "allow"
 
 
+def is_old_style_library(lib):
+    """
+    whether or not this is an old-style library definition
+    :param lib: dict
+    :return: bool
+    """
+    if lib.get("clientreq") or lib.get("serverreq") or lib.get("download") is None:
+        return True
+
+
 def get_lib_file_path(lib):
     """
     Gets a libraries file path (if it's installed at all)
     :param lib: dict
     :return: None / string
     """
+    if is_old_style_library(lib):
+        if lib.get("clientreq") is True:
+            # it's required here
+            return get_download_url_path_for_minecraft_lib(lib["name"])
+
     if lib.get("rules") is None or (lib.get("rules") is not None and do_get_library(lib["rules"])):
         # this one is supposed to be installed
         if lib["downloads"].get("artifact"):

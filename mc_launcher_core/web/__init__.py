@@ -7,7 +7,7 @@ from urllib.request import Request, urlopen
 from mc_launcher_core.exceptions import InvalidLoginError, InvalidMinecraftVersionError
 from mc_launcher_core.util import extract_file_to_directory, java_esque_string_substitutor, is_os_64bit, get_url_filename, do_get_library
 from mc_launcher_core.web.install import save_minecraft_jar
-from mc_launcher_core.web.util import chunked_file_download
+from mc_launcher_core.web.util import chunked_file_download, get_download_url_path_for_minecraft_lib
 
 MINECRAFT_VERSION_MANIFEST_URL = "https://launchermeta.mojang.com/mc/game/version_manifest.json"
 
@@ -99,10 +99,34 @@ def save_minecraft_libs(libdir, nativesdir, libraries):
     :param libraries: list<library>
     :return: None
     """
+    '''
+    def old_style_library_saver(lib):
+        """
+        Save old-style (e.g. Forge-style) libraries
+        :param lib: dict<name:string, url: string, clientreq: bool>
+        :return: None
+        """
+        DEFAULT_MOJANG_BASE_URL = "https://libraries.minecraft.net/"
+
+        print(lib)
+        url_path = get_download_url_path_for_minecraft_lib(lib["name"])
+        url = (lib["url"] if lib.get("url") else DEFAULT_MOJANG_BASE_URL) + url_path
+
+        logger.debug("Determined Download URL for old-style lib: {} to be: {}".format(lib["name"], url))
+    '''
+
     system = platform.system().lower()
 
     for lib in libraries:
         logger.info("Checking library: {}".format(lib["name"]))
+        '''if lib.get("clientreq") is True:
+            # this is old-style and required for the client
+            old_style_library_saver(lib)
+            continue
+        elif lib.get("serverreq") is not None or lib.get("downloads") is None:
+            # old-style but we don't need to download it
+            continue'''
+
         if not do_get_library(lib.get("rules")):
             logger.info("No need to download.")
             continue

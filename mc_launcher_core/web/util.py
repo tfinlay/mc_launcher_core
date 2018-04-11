@@ -53,13 +53,12 @@ def verify_sha1(file, hash):
     return hasher.hexdigest() == hash
 
 
-def get_download_url_for_minecraft_lib(libname):
+def get_download_url_path_for_minecraft_lib(libname):
     """
-    gets the download URL for a Minecraft library based off its name
+    Gets the download path for a Minecraft library based off its name
     :param libname: string
     :return: string
     """
-    BASE_URL = "https://libraries.minecraft.net/"
     pieces = libname.split(":")
 
     # split the start bit
@@ -68,7 +67,18 @@ def get_download_url_for_minecraft_lib(libname):
 
     pieces.append("{}-{}.jar".format(pieces[-2], pieces[-1]))
 
-    return BASE_URL + '/'.join(pieces)
+    return '/'.join(pieces)
+
+
+def get_download_url_for_minecraft_lib(libname, base_url="https://libraries.minecraft.net/"):
+    # TODO: probably this shouldn't exist
+    """
+    gets the download URL for a Minecraft library based off its name
+    :param libname: string
+    :param base_url: string, WITH A TRAILING '/', the base URL (including protocol etc.) of the site to download from
+    :return: string
+    """
+    return base_url + get_download_url_path_for_minecraft_lib(libname)
 
 
 class ForgivingDict(dict):
