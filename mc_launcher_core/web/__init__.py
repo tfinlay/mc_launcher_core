@@ -185,7 +185,7 @@ def save_minecraft_libs(libdir, nativesdir, libraries):
                 # get that file, cos it's not there yet
                 os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-                logger.info("Downloading artifact to: {}".format(filepath))
+                logger.info("Downloading artifact from: {} to: {}".format(lib["downloads"]["artifact"]["url"], filepath))
 
                 chunked_file_download(
                     lib["downloads"]["artifact"]["url"],
