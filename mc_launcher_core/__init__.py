@@ -93,7 +93,7 @@ class MinecraftSession:
 
         print(commands)
 
-        proc = subprocess.Popen(commands, shell=True)
+        proc = subprocess.Popen(commands, shell=False)
         proc.communicate()
 
 

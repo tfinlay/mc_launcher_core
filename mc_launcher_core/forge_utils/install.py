@@ -1,18 +1,8 @@
+import logging
 import zipfile
 import os.path
 import json
-
-
-def get_lib_path_for_forge(path):
-    """
-    :param path: string, e.g. "net.minecraftforge:forge:1.7.10-10.13.4.1614-1.7.10"
-    :return: list<string>
-    """
-    p = path.split(":")
-    start = p.pop(0).split(".")
-    p = start + p
-
-    return p
+from mc_launcher_core.web.util import get_download_url_path_for_minecraft_lib
 
 
 def install_forge_from_jar(installerjar_path, libsdir):
@@ -22,20 +12,28 @@ def install_forge_from_jar(installerjar_path, libsdir):
     :param libsdir: string, path to libraries directory
     :return: dict forge install_profile.json parsed data
     """
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!UNZIPPING FORGE!!!!!!!!!!!!!!!!!!!!!!")
+
     with zipfile.ZipFile(installerjar_path) as f:
         d = json.loads(f.read("install_profile.json").decode())
 
         # extract the modloader to the right place
         out_path = os.path.join(
             libsdir,
-            *get_lib_path_for_forge(d["install"]["path"])[:-1],
-            d["install"]["target"],
-            d["install"]["filePath"]
+            *get_download_url_path_for_minecraft_lib(d["install"]["path"]).split("/")
         )
 
-        f.extract(
-            d["install"]["filePath"],
-            out_path
-        )
+        print(out_path)
+        print(get_download_url_path_for_minecraft_lib(d["install"]["path"]))
+
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
+        with open(out_path, 'wb') as x:
+            x.write(f.read(d["install"]["filePath"]))
+
+        #f.extract(
+        #    d["install"]["filePath"],
+        #    out_path
+        #)
 
     return d

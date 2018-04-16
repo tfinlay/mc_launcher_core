@@ -1,6 +1,7 @@
 """
 Java utilities
 """
+import subprocess
 
 
 class JavaVersion:
@@ -13,6 +14,22 @@ class JavaVersion:
                 return True
 
         return False
+
+
+def unpack200(file, out, unpack200_exe):
+    """
+    Unpack a .pack file into <out> jarfile
+    :param file: string, path to input
+    :param out: string, path to output
+    :param unpack200_exe: string, path to the unpack200 executable file
+    :return: int, unpack200 return code
+    """
+    p = subprocess.Popen([
+        unpack200_exe,
+        file,
+        out
+    ])
+    return p.wait()
 
 
 def version_at(path):

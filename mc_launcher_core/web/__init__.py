@@ -2,10 +2,11 @@ import os.path
 import json
 import logging
 import platform
+import unpack200
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from mc_launcher_core.exceptions import InvalidLoginError, InvalidMinecraftVersionError
-from mc_launcher_core.util import extract_file_to_directory, java_esque_string_substitutor, is_os_64bit, get_url_filename, do_get_library
+from mc_launcher_core.util import extract_file_to_directory, java_esque_string_substitutor, is_os_64bit, get_url_filename, do_get_library, extract_xz_to_file
 from mc_launcher_core.web.install import save_minecraft_jar
 from mc_launcher_core.web.util import chunked_file_download, get_download_url_path_for_minecraft_lib
 
@@ -176,22 +177,60 @@ def save_minecraft_libs(libdir, nativesdir, libraries):
                 logger.debug("done")
 
         if lib["downloads"].get("artifact"):
-            filepath = os.path.join(
-                libdir,
-                *lib["downloads"]["artifact"]["path"].split("/")
-            )
-            logger.debug("Checking if need to download artifact to: {}".format(filepath))
-            if not os.path.isfile(filepath):
-                # get that file, cos it's not there yet
-                os.makedirs(os.path.dirname(filepath), exist_ok=True)
-
-                logger.info("Downloading artifact from: {} to: {}".format(lib["downloads"]["artifact"]["url"], filepath))
-
-                chunked_file_download(
-                    lib["downloads"]["artifact"]["url"],
-                    filepath
+                filepath = os.path.join(
+                    libdir,
+                    *lib["downloads"]["artifact"]["path"].split("/")
                 )
-                logger.info("download complete")
+                if lib.get("fu_existence_guaranteed") in (None, False):
+                    logger.debug("Checking if need to download artifact to: {}".format(filepath))
+                    if not os.path.isfile(filepath):
+                        # get that file, cos it's not there yet
+                        using_alt_url = False
+
+                        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+                        logger.info("Downloading artifact from: {} to: {}".format(lib["downloads"]["artifact"]["url"], filepath))
+                        try:
+                            chunked_file_download(
+                                lib["downloads"]["artifact"]["url"],
+                                filepath
+                            )
+                        except HTTPError:
+                            if lib["downloads"]["artifact"].get("fu_alt_url"):
+                                # download from alt URL
+                                using_alt_url = True
+                                chunked_file_download(
+                                    lib["downloads"]["artifact"]["fu_alt_url"],
+                                    filepath
+                                )
+
+                        logger.info("download complete")
+
+                        if lib.get("extract") and lib["extract"].get("fu_xz_unpack") and (not using_alt_url or lib["extract"].get("fu_xz_unpack_on_alt_url")):
+                            logger.debug("unzipping .pack.xz file...")
+
+                            if os.path.isfile(filepath + ".pack.xz"):
+                                os.remove(filepath + ".pack.xz")
+
+                            if os.path.isfile(filepath + ".pack"):
+                                os.remove(filepath + ".pack")
+
+                            os.rename(filepath, filepath + ".pack.xz")
+                            extract_xz_to_file(
+                                filepath + ".pack.xz",
+                                filepath + ".pack"
+                            )
+                            os.remove(filepath + ".pack.xz")
+
+                            logger.debug("Unzipped, unpacking...")
+                            unpack200.unpack(
+                                filepath + ".pack",
+                                filepath,
+                                remove_source=True
+                            )
+
+                            logger.debug("done")
+
 
 
 def check_minecraft_assets(assets_index_path, assetsdir):

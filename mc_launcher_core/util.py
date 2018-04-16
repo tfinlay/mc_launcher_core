@@ -4,6 +4,7 @@ import os.path
 import logging
 import zipfile
 import json
+import lzma
 from mc_launcher_core.web.util import get_download_url_path_for_minecraft_lib
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,18 @@ def extract_file_to_directory(filepath, directory, exclude=()):
                 z.extract(filename, directory)
 
 
+def extract_xz_to_file(infile, outfile):
+    """
+    extracts the infile xz to outfile
+    :param infile: string, path to an xz file
+    :param outfile: string, path to wherever
+    :return: None
+    """
+    with lzma.open(infile) as f:
+        with open(outfile, 'wb') as x:
+            x.write(f.read())
+
+
 def is_os_64bit():
     return platform.machine().endswith('64')
 
@@ -201,6 +214,8 @@ def escape_path_for_popen(path):
     :param path:
     :return:
     """
+    raise NotImplementedError()
+
 
 if __name__ == "__main__":
     from pprint import pprint as pp

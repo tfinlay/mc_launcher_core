@@ -28,6 +28,13 @@ def generate_class_path(bindir, libcache):
 
     cp = []
 
+    # add Minecraft jar
+    if not os.path.isfile(minecraft_path):
+        raise MinecraftNotFoundError(minecraft_path)
+
+    cp.append(minecraft_path)
+
+    # add the modloader
     logger.debug("Checking if modloader.jar exists...")
     if os.path.isfile(modloader_path):
         # add this
@@ -46,14 +53,6 @@ def generate_class_path(bindir, libcache):
         cp.append(filepath)
 
     logger.debug("done!")
-
-    # add Minecraft jar
-    if not os.path.isfile(minecraft_path):
-        raise MinecraftNotFoundError(minecraft_path)
-
-    cp.append(minecraft_path)
-
-    cp.append(r"C:\Users\Thomas Finlay\Documents\Github\_ModInstaller\mc_launcher_core\test\static\libs\net\minecraftforge\forge\1.7.10-Forge10.13.4.1614-1.7.10\1.7.10-Forge10.13.4.1614-1.7.10.jar")
 
     return os.path.pathsep.join(cp)  # type: str
 

@@ -53,25 +53,44 @@ def verify_sha1(file, hash):
     return hasher.hexdigest() == hash
 
 
-def get_download_url_path_for_minecraft_lib(libname):
+def get_download_url_path_for_minecraft_lib(descriptor):
     """
-    Gets the download path for a Minecraft library based off its name
-    :param libname: string
+    Gets the URL path for a library based on it's name
+    :param descriptor: string, e.g. "com.typesafe.akka:akka-actor_2.11:2.3.3"
     :return: string
     """
-    pieces = libname.split(":")
+    ext = "jar"
 
-    # split the start bit
-    start = pieces.pop(0)
-    pieces = start.split(".") + pieces
+    pts = descriptor.split(":")
+    domain = pts[0]
+    name = pts[1]
 
-    pieces.append("{}-{}.jar".format(pieces[-2], pieces[-1]))
+    last = len(pts) - 1
+    if "@" in pts[last]:
+        idx = pts[last].index("@")
+        ext = pts[last][idx+1:]
+        pts[last] = pts[last][0:idx+1]
 
-    return '/'.join(pieces)
+    version = pts[2]
+
+    classifier = None
+    if len(pts) > 3:
+        classifier = pts[3]
+
+    file = name + "-" + version
+
+    if classifier is not None:
+        file += "-" + classifier
+
+    file += "." + ext
+
+    path = domain.replace(".", "/") + "/" + name + "/" + version + "/" + file
+
+    return path
 
 
 def get_download_url_for_minecraft_lib(libname, base_url="https://libraries.minecraft.net/"):
-    # TODO: probably this shouldn't exist
+    # TODO: this probably shouldn't exist
     """
     gets the download URL for a Minecraft library based off its name
     :param libname: string
@@ -91,3 +110,5 @@ class ForgivingDict(dict):
 
 if __name__ == "__main__":
     print(get_download_url_for_minecraft_lib("net.minecraft:launchwrapper:1.12"))
+    print(get_download_url_path_for_minecraft_lib("com.typesafe.akka:akka-actor_2.11:2.3.3"))
+    print(get_download_url_for_minecraft_lib("com.typesafe.akka:akka-actor_2.11:2.3.3"))
