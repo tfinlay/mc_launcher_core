@@ -34,7 +34,7 @@ def convert_old_style_lib(lib, existence_guaranteed=False):
         downloads=dict(
             artifact=dict(
                 size=0,
-                sha1="UNKNOWN",
+                #sha1="UNKNOWN",
                 path=path,
                 url=url,
                 fu_alt_url=alt_url
@@ -70,16 +70,17 @@ def merge_forge_library_requirements(forgejson, bindir):
         json.dump(mcjson, f)
 
 
-def install_forge(p, libsdir, bindir):
+def install_forge(p, libsdir, bindir, remove_installer=False):
     """
     Install forge with Jar installer at <p>
     :param p: string, path
     :param libsdir: string, path
     :param bindir: string, path
+    :param remove_installer: bool, whether to remove the installer file after installation is complete
     :return: None
     """
     # extract key Forge data
-    data = install_forge_from_jar(p, libsdir)
+    data = install_forge_from_jar(p, libsdir, remove_installer)
 
     # merge Forge data
     merge_forge_library_requirements(data, bindir)

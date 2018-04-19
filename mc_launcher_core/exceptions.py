@@ -11,7 +11,7 @@ class LibraryMissingError(Exception):
     def __init__(self, lib_path, *args):
         self.lib_path = lib_path
 
-        super().__init__(*args)
+        super().__init__(self, *args)
 
 
 class MinecraftNotFoundError(Exception):
@@ -20,7 +20,7 @@ class MinecraftNotFoundError(Exception):
     """
     def __init__(self, checked_path, *args):
         self.checked_path = checked_path
-        super().__init__(*args)
+        super().__init__(self, *args)
 
 
 class InvalidMinecraftVersionError(Exception):
@@ -29,4 +29,14 @@ class InvalidMinecraftVersionError(Exception):
     """
     def __init__(self, version, *args):
         self.version = version
-        super().__init__(*args)
+        super().__init__(self, *args)
+
+
+class HashMatchError(Exception):
+    """
+    When hashes don't match
+    """
+    def __init__(self, lib, type="lib", *args):
+        self.library = lib
+        self.type = type
+        super().__init__(self, *args)

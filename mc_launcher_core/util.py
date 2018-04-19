@@ -89,8 +89,10 @@ def is_old_style_library(lib):
     :param lib: dict
     :return: bool
     """
-    if lib.get("clientreq") or lib.get("serverreq") or lib.get("download") is None:
+    if lib.get("clientreq") or lib.get("serverreq") or lib.get("downloads") is None:
         return True
+    else:
+        return False
 
 
 def get_lib_file_path(lib):

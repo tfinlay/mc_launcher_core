@@ -39,6 +39,23 @@ def chunked_file_download(url, path, chunk_size=(16*1024), makedirs=True):
         chunked_download(url, f, chunk_size)
 
 
+def get_sha1_hash(stream):
+    """
+    Gets the sha1 hash of <stream>
+    :param stream: File-like object (opened in bytes-reading mode)
+    :return: None
+    """
+    hasher = hashlib.sha1()
+
+    while True:
+        data = stream.read(128 * hasher.block_size)
+        if not data:
+            break
+        hasher.update(data)
+
+    return hasher.hexdigest()
+
+
 def verify_sha1(file, hash):
     """
     Verify that file has the right hash
@@ -46,11 +63,8 @@ def verify_sha1(file, hash):
     :param hash: string
     :return: bool
     """
-    hasher = hashlib.sha1()
     with open(file, 'rb') as f:
-        hasher.update(f.read())
-
-    return hasher.hexdigest() == hash
+        return get_sha1_hash(f) == hash
 
 
 def get_download_url_path_for_minecraft_lib(descriptor):
